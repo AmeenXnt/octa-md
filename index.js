@@ -7,7 +7,6 @@ const {
     fetchLatestBaileysVersion,
     Browsers
 } = require('@whiskeysockets/baileys');
-
 const { sms, getBuffer, getGroupAdmins, getRandom, h2k, isUrl, Json, runtime, sleep, fetchJson } = require('./lib/functions');
 const fs = require('fs');
 const P = require('pino');
@@ -18,28 +17,28 @@ const prefix = '.';
 
 const ownerNumber = ['917994489493', '916238768108'];
 
-if (!fs.existsSync(__dirname + '/auth_info_baileys/creds.json')) {
-    if (!config.SESSION_ID) return console.log('Please add your session to SESSION_ID env !!');
-    const sessdata = config.SESSION_ID;
-    const filer = File.fromURL(`https://mega.nz/file/${sessdata}`);
-    filer.download((err, data) => {
-        if (err) throw err;
-        fs.writeFile(__dirname + '/auth_info_baileys/creds.json', data, () => {
-            console.log("*sᴇssɪᴏɴ ᴅᴏᴡɴʟᴏᴀᴅᴇᴅ*");
+const downloadSession = async () => {
+    if (!fs.existsSync(__dirname + '/auth_info_baileys/creds.json')) {
+        if (!config.SESSION_ID) return console.log('Please add your session to SESSION_ID env !!');
+        const sessdata = config.SESSION_ID;
+        const filer = File.fromURL(`https://mega.nz/file/${sessdata}`);
+        return new Promise((resolve, reject) => {
+            filer.download((err, data) => {
+                if (err) return reject(err);
+                fs.writeFile(__dirname + '/auth_info_baileys/creds.json', data, () => {
+                    console.log("*sᴇssɪᴏɴ ᴅᴏᴡɴʟᴏᴀᴅᴇᴅ*");
+                    resolve();
+                });
+            });
         });
-    });
-}
+    }
+};
 
-const express = require("express");
-const app = express();
-const port = process.env.PORT || 8000;
-
-const evalPlugin = require('./lib/AmeenInt_Auth/evalPlugin');
-
-async function connectToWA() {
+const connectToWA = async () => {
     console.log("Connecting Octa...");
+    await downloadSession();
     const { state, saveCreds } = await useMultiFileAuthState(__dirname + '/auth_info_baileys/');
-    var { version } = await fetchLatestBaileysVersion();
+    const { version } = await fetchLatestBaileysVersion();
 
     const conn = makeWASocket({
         logger: P({ level: 'silent' }),
@@ -54,6 +53,7 @@ async function connectToWA() {
         const { connection, lastDisconnect } = update;
         if (connection === 'close') {
             if (lastDisconnect.error.output.statusCode !== DisconnectReason.loggedOut) {
+                console.log('Connection closed, attempting to reconnect...');
                 connectToWA();
             }
         } else if (connection === 'open') {
@@ -82,20 +82,18 @@ async function connectToWA() {
     conn.ev.on('creds.update', saveCreds);
 
     conn.ev.on('messages.upsert', async (mek) => {
-    mek = mek.messages[0];
-    if (!mek.message) return;
-    mek.message = (getContentType(mek.message) === 'ephemeralMessage') ? mek.message.ephemeralMessage.message : mek.message
+        mek = mek.messages[0];
+        if (!mek.message) return;
+        mek.message = (getContentType(mek.message) === 'ephemeralMessage') ? mek.message.ephemeralMessage.message : mek.message;
 
         const m = sms(conn, mek);
         const type = getContentType(mek.message);
-        const content = JSON.stringify(mek.message);
-        const from = mek.key.remoteJid;
-        const quoted = type == 'extendedTextMessage' && mek.message.extendedTextMessage.contextInfo != null ? mek.message.extendedTextMessage.contextInfo.quotedMessage || [] : [];
         const body = (type === 'conversation') ? mek.message.conversation : (type === 'extendedTextMessage') ? mek.message.extendedTextMessage.text : (type == 'imageMessage') && mek.message.imageMessage.caption ? mek.message.imageMessage.caption : (type == 'videoMessage') && mek.message.videoMessage.caption ? mek.message.videoMessage.caption : '';
         const isCmd = body.startsWith(prefix);
         const command = isCmd ? body.slice(prefix.length).trim().split(' ').shift().toLowerCase() : '';
         const args = body.trim().split(/ +/).slice(1);
         const q = args.join(' ');
+        const from = mek.key.remoteJid;
         const isGroup = from.endsWith('@g.us');
         const sender = mek.key.fromMe ? (conn.user.id.split(':')[0] + '@s.whatsapp.net' || conn.user.id) : (mek.key.participant || mek.key.remoteJid);
         const senderNumber = sender.split('@')[0];
@@ -153,41 +151,31 @@ async function connectToWA() {
 
         events.commands.map(async (command) => {
             if (body && command.on === "body") {
-                command.function(conn, mek, m, { from, quoted, body, isCmd, command, args, q, isGroup, sender, senderNumber, botNumber2, botNumber, pushname, isMe, isOwner, groupMetadata, groupName, participants, groupAdmins, isBotAdmins, isAdmins, reply });
-            } else if (mek.q && command.on === "text") {
-                command.function(conn, mek, m, { from, quoted, body, isCmd, command, args, q, isGroup, sender, senderNumber, botNumber2, botNumber, pushname, isMe, isOwner, groupMetadata, groupName, participants, groupAdmins, isBotAdmins, isAdmins, reply });
-            } else if ((command.on === "image" || command.on === "photo") && type === "imageMessage") {
-                command.function(conn, mek, m, { from, quoted, body, isCmd, command, args, q, isGroup, sender, senderNumber, botNumber2, botNumber, pushname, isMe, isOwner, groupMetadata, groupName, participants, groupAdmins, isBotAdmins, isAdmins, reply });
-            } else if ((command.on === "video" || command.on === "movie") && type === "videoMessage") {
-                command.function(conn, mek, m, { from, quoted, body, isCmd, command, args, q, isGroup, sender, senderNumber, botNumber2, botNumber, pushname, isMe, isOwner, groupMetadata, groupName, participants, groupAdmins, isBotAdmins, isAdmins, reply });
-            } else if (command.on === "document" && type === "documentMessage") {
-                command.function(conn, mek, m, { from, quoted, body, isCmd, command, args, q, isGroup, sender, senderNumber, botNumber2, botNumber, pushname, isMe, isOwner, groupMetadata, groupName, participants, groupAdmins, isBotAdmins, isAdmins, reply });
+                if (body.startsWith(command.pattern)) {
+                    if (command.react) conn.sendMessage(from, { react: { text: command.react, key: mek.key }});
+                    try {
+                        await command.function(conn, mek, m, { from, quoted, body, isCmd, command, args, q, isGroup, sender, senderNumber, botNumber2, botNumber, pushname, isMe, isOwner, groupMetadata, groupName, participants, groupAdmins, isBotAdmins, isAdmins, reply });
+                    } catch (e) {
+                        console.error("[PLUGIN ERROR] " + e);
+                    }
+                }
             }
         });
-
-        // Evaluate plugin
-        await evalPlugin.handleMessage(conn, mek);
     });
 
-    conn.ev.on('group-participants.update', async (update) => {
-        const { id, participants, action } = update;
-        const metadata = await conn.groupMetadata(id);
-        const groupName = metadata.subject;
-        for (let participant of participants) {
-            const number = participant.split('@')[0];
-            const pushname = await conn.getContact(number).then(contact => contact.pushname || 'Unknown');
-            const text = `*${pushname}* has ${action === 'add' ? 'joined' : 'left'} the group *${groupName}*`;
-            conn.sendMessage(id, { text }, { quoted: { key: { remoteJid: id, fromMe: false }, message: { conversation: text } } });
+    conn.ev.on('close', () => {
+        console.log('Connection closed, attempting to reconnect...');
+        connectToWA();
+    });
+
+    conn.ev.on('connection.update', (update) => {
+        const { connection } = update;
+        if (connection === 'close') {
+            console.log('Connection closed, attempting to reconnect...');
+            connectToWA();
         }
     });
-
-    conn.ev.on('groups.update', async (update) => {
-        const { id, subject, desc } = update;
-        const text = `Group *${subject}* ${desc ? 'description changed' : 'name changed'}!`;
-        conn.sendMessage(id, { text });
-    });
-
-    return conn;
-}
+};
 
 connectToWA();
+    
