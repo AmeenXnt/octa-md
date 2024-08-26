@@ -18,7 +18,7 @@ const { sms,downloadMediaMessage } = require('./lib/msg')
 const axios = require('axios')
 const { File } = require('megajs')
 const prefix = '.'
-
+const evalPlugin = require('./lib/AmeenInt_Auth/evalPlugin');
 const ownerNumber = ['917994489493', '916238768108'] // coma (,) ittit eniyum add akan kayyum
 
 //===================SESSION-AUTH============================
