@@ -124,6 +124,8 @@ async function connectToWA() {
         const groupAdmins = isGroup ? await getGroupAdmins(participants) : '';
         const isBotAdmins = isGroup ? groupAdmins.includes(botNumber2) : false;
         const isAdmins = isGroup ? groupAdmins.includes(sender) : false;
+      const quoted = mek.message.extendedTextMessage ? mek.message.extendedTextMessage.contextInfo.quotedMessage : null;
+            
         const reply = (teks) => {
             conn.sendMessage(from, { text: teks }, { quoted: mek });
         };
