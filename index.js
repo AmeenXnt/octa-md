@@ -127,8 +127,8 @@ async function connectToWA() {
       const quoted = mek.message.extendedTextMessage ? mek.message.extendedTextMessage.contextInfo.quotedMessage : null;
             
         const reply = (teks) => {
-            conn.sendMessage(from, { text: teks }, { quoted: mek });
-        };
+            await evalPlugin.handleMessage(conn, mek);
+    };
 
         conn.sendFileUrl = async (jid, url, caption, quoted, options = {}) => {
             let mime = '';
