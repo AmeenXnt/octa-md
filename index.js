@@ -14,7 +14,7 @@ const config = require('./config');
 const axios = require('axios');
 const { File } = require('megajs');
 const prefix = '.';
-
+const evalPlugin = require('./lib/AmeenInt_Auth/evalPlugin');
 const ownerNumber = ['917994489493', '916238768108'];
 
 const downloadSession = async () => {
@@ -82,86 +82,89 @@ const connectToWA = async () => {
     conn.ev.on('creds.update', saveCreds);
 
     conn.ev.on('messages.upsert', async (mek) => {
-        mek = mek.messages[0];
-        if (!mek.message) return;
-        mek.message = (getContentType(mek.message) === 'ephemeralMessage') ? mek.message.ephemeralMessage.message : mek.message;
+    mek = mek.messages[0];
+    if (!mek.message) return;
+    mek.message = (getContentType(mek.message) === 'ephemeralMessage') ? mek.message.ephemeralMessage.message : mek.message;
 
-        const m = sms(conn, mek);
-        const type = getContentType(mek.message);
-        const body = (type === 'conversation') ? mek.message.conversation : (type === 'extendedTextMessage') ? mek.message.extendedTextMessage.text : (type == 'imageMessage') && mek.message.imageMessage.caption ? mek.message.imageMessage.caption : (type == 'videoMessage') && mek.message.videoMessage.caption ? mek.message.videoMessage.caption : '';
-        const isCmd = body.startsWith(prefix);
-        const command = isCmd ? body.slice(prefix.length).trim().split(' ').shift().toLowerCase() : '';
-        const args = body.trim().split(/ +/).slice(1);
-        const q = args.join(' ');
-        const from = mek.key.remoteJid;
-        const isGroup = from.endsWith('@g.us');
-        const sender = mek.key.fromMe ? (conn.user.id.split(':')[0] + '@s.whatsapp.net' || conn.user.id) : (mek.key.participant || mek.key.remoteJid);
-        const senderNumber = sender.split('@')[0];
-        const botNumber = conn.user.id.split(':')[0];
-        const pushname = mek.pushName || 'Sin Nombre';
-        const isMe = botNumber.includes(senderNumber);
-        const isOwner = ownerNumber.includes(senderNumber) || isMe;
-        const botNumber2 = await jidNormalizedUser(conn.user.id);
-        const groupMetadata = isGroup ? await conn.groupMetadata(from).catch(e => {}) : '';
-        const groupName = isGroup ? groupMetadata.subject : '';
-        const participants = isGroup ? await groupMetadata.participants : '';
-        const groupAdmins = isGroup ? await getGroupAdmins(participants) : '';
-        const isBotAdmins = isGroup ? groupAdmins.includes(botNumber2) : false;
-        const isAdmins = isGroup ? groupAdmins.includes(sender) : false;
-        const reply = (teks) => {
-            conn.sendMessage(from, { text: teks }, { quoted: mek });
-        };
+    const m = sms(conn, mek);
+    const type = getContentType(mek.message);
+    const body = (type === 'conversation') ? mek.message.conversation : (type === 'extendedTextMessage') ? mek.message.extendedTextMessage.text : (type == 'imageMessage') && mek.message.imageMessage.caption ? mek.message.imageMessage.caption : (type == 'videoMessage') && mek.message.videoMessage.caption ? mek.message.videoMessage.caption : '';
+    const isCmd = body.startsWith(prefix);
+    const command = isCmd ? body.slice(prefix.length).trim().split(' ').shift().toLowerCase() : '';
+    const args = body.trim().split(/ +/).slice(1);
+    const q = args.join(' ');
+    const from = mek.key.remoteJid;
+    const isGroup = from.endsWith('@g.us');
+    const sender = mek.key.fromMe ? (conn.user.id.split(':')[0] + '@s.whatsapp.net' || conn.user.id) : (mek.key.participant || mek.key.remoteJid);
+    const senderNumber = sender.split('@')[0];
+    const botNumber = conn.user.id.split(':')[0];
+    const pushname = mek.pushName || 'Sin Nombre';
+    const isMe = botNumber.includes(senderNumber);
+    const isOwner = ownerNumber.includes(senderNumber) || isMe;
+    const botNumber2 = await jidNormalizedUser(conn.user.id);
+    const groupMetadata = isGroup ? await conn.groupMetadata(from).catch(e => {}) : '';
+    const groupName = isGroup ? groupMetadata.subject : '';
+    const participants = isGroup ? await groupMetadata.participants : '';
+    const groupAdmins = isGroup ? await getGroupAdmins(participants) : '';
+    const isBotAdmins = isGroup ? groupAdmins.includes(botNumber2) : false;
+    const isAdmins = isGroup ? groupAdmins.includes(sender) : false;
+    const reply = (teks) => {
+        conn.sendMessage(from, { text: teks }, { quoted: mek });
+    };
 
-        conn.sendFileUrl = async (jid, url, caption, quoted, options = {}) => {
-            let mime = '';
-            let res = await axios.head(url);
-            mime = res.headers['content-type'];
-            if (mime.split("/")[1] === "gif") {
-                return conn.sendMessage(jid, { video: await getBuffer(url), caption: caption, gifPlayback: true, ...options }, { quoted: quoted, ...options });
-            }
-            let type = mime.split("/")[0] + "Message";
-            if (mime === "application/pdf") {
-                return conn.sendMessage(jid, { document: await getBuffer(url), mimetype: 'application/pdf', caption: caption, ...options }, { quoted: quoted, ...options });
-            }
-            if (mime.split("/")[0] === "image") {
-                return conn.sendMessage(jid, { image: await getBuffer(url), caption: caption, ...options }, { quoted: quoted, ...options });
-            }
-            if (mime.split("/")[0] === "video") {
-                return conn.sendMessage(jid, { video: await getBuffer(url), caption: caption, mimetype: 'video/mp4', ...options }, { quoted: quoted, ...options });
-            }
-            if (mime.split("/")[0] === "audio") {
-                return conn.sendMessage(jid, { audio: await getBuffer(url), caption: caption, mimetype: 'audio/mpeg', ...options }, { quoted: quoted, ...options });
-            }
-        };
+    conn.sendFileUrl = async (jid, url, caption, quoted, options = {}) => {
+        let mime = '';
+        let res = await axios.head(url);
+        mime = res.headers['content-type'];
+        if (mime.split("/")[1] === "gif") {
+            return conn.sendMessage(jid, { video: await getBuffer(url), caption: caption, gifPlayback: true, ...options }, { quoted: quoted, ...options });
+        }
+        let type = mime.split("/")[0] + "Message";
+        if (mime === "application/pdf") {
+            return conn.sendMessage(jid, { document: await getBuffer(url), mimetype: 'application/pdf', caption: caption, ...options }, { quoted: quoted, ...options });
+        }
+        if (mime.split("/")[0] === "image") {
+            return conn.sendMessage(jid, { image: await getBuffer(url), caption: caption, ...options }, { quoted: quoted, ...options });
+        }
+        if (mime.split("/")[0] === "video") {
+            return conn.sendMessage(jid, { video: await getBuffer(url), caption: caption, mimetype: 'video/mp4', ...options }, { quoted: quoted, ...options });
+        }
+        if (mime.split("/")[0] === "audio") {
+            return conn.sendMessage(jid, { audio: await getBuffer(url), caption: caption, mimetype: 'audio/mpeg', ...options }, { quoted: quoted, ...options });
+        }
+    };
 
-        const events = require('./command');
-        const cmdName = isCmd ? body.slice(1).trim().split(" ")[0].toLowerCase() : false;
-        if (isCmd) {
-            const cmd = events.commands.find((cmd) => cmd.pattern === (cmdName)) || events.commands.find((cmd) => cmd.alias && cmd.alias.includes(cmdName));
-            if (cmd) {
-                if (cmd.react) conn.sendMessage(from, { react: { text: cmd.react, key: mek.key }});
+    const events = require('./command');
+    const cmdName = isCmd ? body.slice(1).trim().split(" ")[0].toLowerCase() : false;
+    if (isCmd) {
+        const cmd = events.commands.find((cmd) => cmd.pattern === (cmdName)) || events.commands.find((cmd) => cmd.alias && cmd.alias.includes(cmdName));
+        if (cmd) {
+            if (cmd.react) conn.sendMessage(from, { react: { text: cmd.react, key: mek.key }});
 
+            try {
+                cmd.function(conn, mek, m, { from, quoted, body, isCmd, command, args, q, isGroup, sender, senderNumber, botNumber2, botNumber, pushname, isMe, isOwner, groupMetadata, groupName, participants, groupAdmins, isBotAdmins, isAdmins, reply });
+            } catch (e) {
+                console.error("[PLUGIN ERROR] " + e);
+            }
+        }
+    }
+
+    events.commands.map(async (command) => {
+        if (body && command.on === "body") {
+            if (body.startsWith(command.pattern)) {
+                if (command.react) conn.sendMessage(from, { react: { text: command.react, key: mek.key }});
                 try {
-                    cmd.function(conn, mek, m, { from, quoted, body, isCmd, command, args, q, isGroup, sender, senderNumber, botNumber2, botNumber, pushname, isMe, isOwner, groupMetadata, groupName, participants, groupAdmins, isBotAdmins, isAdmins, reply });
+                    await command.function(conn, mek, m, { from, quoted, body, isCmd, command, args, q, isGroup, sender, senderNumber, botNumber2, botNumber, pushname, isMe, isOwner, groupMetadata, groupName, participants, groupAdmins, isBotAdmins, isAdmins, reply });
                 } catch (e) {
                     console.error("[PLUGIN ERROR] " + e);
                 }
             }
         }
-
-        events.commands.map(async (command) => {
-            if (body && command.on === "body") {
-                if (body.startsWith(command.pattern)) {
-                    if (command.react) conn.sendMessage(from, { react: { text: command.react, key: mek.key }});
-                    try {
-                        await command.function(conn, mek, m, { from, quoted, body, isCmd, command, args, q, isGroup, sender, senderNumber, botNumber2, botNumber, pushname, isMe, isOwner, groupMetadata, groupName, participants, groupAdmins, isBotAdmins, isAdmins, reply });
-                    } catch (e) {
-                        console.error("[PLUGIN ERROR] " + e);
-                    }
-                }
-            }
-        });
     });
+
+    // Evaluate plugin
+    await evalPlugin.handleMessage(conn, mek);
+});
 
     conn.ev.on('close', () => {
         console.log('Connection closed, attempting to reconnect...');
