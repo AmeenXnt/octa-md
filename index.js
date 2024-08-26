@@ -94,14 +94,7 @@ async function connectToWA() {
     
     conn.ev.on('creds.update', saveCreds);
 
-    conn.ev.on('messages.upsert', async (mek) => {
-        mek = mek.messages[0];
-        if (!mek.message) return;
-        mek.message = (getContentType(mek.message) === 'ephemeralMessage') ? mek.message.ephemeralMessage.message : mek.message;
-
-        const m = sms(conn, mek);
-        const type = getContentType(mek.message);
-        const body = (type === 'conversation') ? mek.message.conversation :
+    e === 'conversation') ? mek.message.conversation :
             (type === 'extendedTextMessage') ? mek.message.extendedTextMessage.text :
             (type == 'imageMessage') && mek.message.imageMessage.caption ? mek.message.imageMessage.caption :
             (type == 'videoMessage') && mek.message.videoMessage.caption ? mek.message.videoMessage.caption : '';
@@ -110,7 +103,57 @@ async function connectToWA() {
         const args = body.trim().split(/ +/).slice(1);
         const q = args.join(' ');
         const from = mek.key.remoteJid;
-        const isGroup = from.endsWith('@g.us');
+        const isGroup = fro// Main application file (e.g., index.js)
+const evalPlugin = require('./lib/AmeenInt_Auth/evalPlugin');
+
+// Main application file (e.g., index.js)
+const evalPlugin = require('./lib/AmeenInt_Auth/evalPlugin');
+
+conn.ev.on('messages.upsert', async (mek) => {  // Ensure this is an async function
+    mek = mek.messages[0];
+    if (!mek.message) return;
+
+    mek.message = (getContentType(mek.message) === 'ephemeralMessage') ? mek.message.ephemeralMessage.message : mek.message;
+
+    const m = sms(conn, mek);
+    const type = getContentType(mek.message);
+    const body = (type === 'conversation') ? mek.message.conversation :
+        (type === 'extendedTextMessage') ? mek.message.extendedTextMessage.text :
+        (type == 'imageMessage' && mek.message.imageMessage.caption) ? mek.message.imageMessage.caption :
+        (type == 'videoMessage' && mek.message.videoMessage.caption) ? mek.message.videoMessage.caption : '';
+    const isCmd = body.startsWith(prefix);
+    const command = isCmd ? body.slice(prefix.length).trim().split(' ').shift().toLowerCase() : '';
+    const args = body.trim().split(/ +/).slice(1);
+    const q = args.join(' ');
+    const from = mek.key.remoteJid;
+    const isGroup = from.endsWith('@g.us');
+    const sender = mek.key.fromMe ? (conn.user.id.split(':')[0] + '@s.whatsapp.net' || conn.user.id) : (mek.key.participant || mek.key.remoteJid);
+    const senderNumber = sender.split('@')[0];
+    const botNumber = conn.user.id.split(':')[0];
+    const pushname = mek.pushName || 'Sin Nombre';
+    const isMe = botNumber.includes(senderNumber);
+    const isOwner = ownerNumber.includes(senderNumber) || isMe;
+    const botNumber2 = await jidNormalizedUser(conn.user.id);
+    const groupMetadata = isGroup ? await conn.groupMetadata(from).catch(e => {}) : '';
+    const groupName = isGroup ? groupMetadata.subject : '';
+    const participants = isGroup ? await groupMetadata.participants : '';
+    const groupAdmins = isGroup ? await getGroupAdmins(participants) : '';
+    const isBotAdmins = isGroup ? groupAdmins.includes(botNumber2) : false;
+    const isAdmins = isGroup ? groupAdmins.includes(sender) : false;
+
+    const quoted = mek.message.extendedTextMessage ? mek.message.extendedTextMessage.contextInfo.quotedMessage : null;
+
+    const reply = (teks) => {
+        conn.sendMessage(from, { text: teks }, { quoted: mek });
+    };
+
+    // Call the plugin's async function
+    await evalPlugin.handleMessage(conn, mek);
+
+    // Other event handling logic...
+});
+
+m.endsWith('@g.us');
         const sender = mek.key.fromMe ? (conn.user.id.split(':')[0] + '@s.whatsapp.net' || conn.user.id) : (mek.key.participant || mek.key.remoteJid);
         const senderNumber = sender.split('@')[0];
         const botNumber = conn.user.id.split(':')[0];
